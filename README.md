@@ -2,6 +2,8 @@
 
 A tool which lets you listen to your lossless music collection on your car radio.
 
+![Preview](preview.webp)
+
 ## Why?
 
 The radio in my car is ancient and can only play MP3 files. All of the music in my
@@ -43,10 +45,10 @@ Options:
 
 ## Example
 
-Sync music from `~/Music` to your flash drive mounted at `/media/aspizu/USB`.
+Sync music from `~/Music` to your flash drive mounted at `/run/media/aspizu/USB`.
 
 ```shell
-musync -s ~/Music -d /media/aspizu/USB
+musync -s ~/Music -d /run/media/aspizu/USB
 ```
 
 Run the above command again when you update your music collection.
