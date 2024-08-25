@@ -14,7 +14,6 @@ use walkdir::WalkDir;
 const EXTENSIONS_TO_CONVERT: [&str; 7] =
     ["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a"];
 const STATE_FILE: &str = ".musync";
-const MAX_JOBS: usize = 16;
 
 /// Return an iterator to the Reader of the lines of the file.
 fn read_lines<P>(path: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -165,10 +164,10 @@ where
     Ok(())
 }
 
-fn convert_files(to_convert: &[(PathBuf, PathBuf)]) -> io::Result<()> {
-    let mut jobs: Vec<Child> = Vec::with_capacity(MAX_JOBS);
+fn convert_files(to_convert: &[(PathBuf, PathBuf)], max_jobs: usize) -> io::Result<()> {
+    let mut jobs: Vec<Child> = Vec::with_capacity(max_jobs);
     for (src, dst) in to_convert {
-        if jobs.len() >= MAX_JOBS {
+        if jobs.len() >= max_jobs {
             eprintln!(" --- Waiting for jobs --- ");
             for job in &mut jobs {
                 job.wait()?;
@@ -198,7 +197,7 @@ fn convert_files(to_convert: &[(PathBuf, PathBuf)]) -> io::Result<()> {
     Ok(())
 }
 
-pub fn musync<P>(src: P, dst: P) -> io::Result<()>
+pub fn musync<P>(src: P, dst: P, max_jobs: usize) -> io::Result<()>
 where P: AsRef<Path> {
     let mut new_state: FxHashMap<SmolStr, SmolStr> = Default::default();
     let mut files: FxHashSet<SmolStr> = Default::default();
@@ -206,7 +205,7 @@ where P: AsRef<Path> {
     let state_file = dst.as_ref().join(STATE_FILE);
     let prev_state = read_table(&state_file, 128)?;
     add_new_files(&src, &dst, prev_state, &mut new_state, &mut files, &mut to_convert)?;
-    convert_files(&to_convert)?;
+    convert_files(&to_convert, max_jobs)?;
     remove_non_existent_files(&dst, &files)?;
     write_table(state_file, &new_state)?;
     remove_empty_directories(dst)?;
