@@ -2,7 +2,7 @@
 
 A tool which lets you listen to your lossless music collection on your car radio.
 
-![Preview](preview.webp)
+![Preview](screenshot.png) 
 
 ## Why?
 
@@ -22,7 +22,6 @@ skip my way to the songs I want to listen to.
 Requires the following programs:
 
  - `ffmpeg`: [https://www.ffmpeg.org/](https://www.ffmpeg.org/)
- - `find`: [https://www.gnu.org/software/findutils/](https://www.gnu.org/software/findutils/)
 
 ```shell
 git clone https://github.com/aspizu/musync
@@ -33,17 +32,24 @@ cargo install --path .
 ## Usage
 
 ```
-Usage: musync [OPTIONS] -s <SRC> -d <DST>
+Usage: musync.exe [OPTIONS] -s <SRC> -d <DST>
 
 Options:
-  -s <SRC>       Directory to sync from
-  -d <DST>       Directory to sync to
-  -j <JOBS>      Number of jobs to run in parallel [default: 16]
-  -h, --help     Print help
-  -V, --version  Print version
+  -s <SRC>                 Directory to sync from
+  -d <DST>                 Directory to sync to
+  -j <JOBS>                Number of jobs to run in parallel [default: 16]
+  -b, --bitrate <BITRATE>  Bitrate of converted files [default: 256]
+  -h, --help               Print help
+  -V, --version            Print version
 ```
 
 ## Example
+
+Sync music from your `Music` directory to your flash drive mounted at `D:\`.
+
+```powershell
+musync.exe -s ~\Music -d D:\
+```
 
 Sync music from `~/Music` to your flash drive mounted at `/run/media/aspizu/USB`.
 

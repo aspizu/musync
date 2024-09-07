@@ -14,6 +14,9 @@ use walkdir::WalkDir;
 const EXTENSIONS_TO_CONVERT: [&str; 7] =
     ["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a"];
 const STATE_FILE: &str = ".musync";
+// Only compute the hash of the first x bytes to make it faster.
+// If hash collisions are detected, tune this.
+const BUFFER_SIZE: usize = 1048576;
 
 /// Return an iterator to the Reader of the lines of the file.
 fn read_lines<P>(path: P) -> io::Result<io::Lines<io::BufReader<File>>>
@@ -67,24 +70,29 @@ fn undepthify(path: impl AsRef<Path>) -> PathBuf {
 /// Remove empty directories recursively.
 fn remove_empty_directories<P>(path: P) -> io::Result<()>
 where P: AsRef<Path> {
-    Command::new("find")
-        .arg(path.as_ref())
-        .arg("-type")
-        .arg("d")
-        .arg("-empty")
-        .arg("-delete")
-        .spawn()?
-        .wait()?;
+    let mut dirs: Vec<_> = WalkDir::new(path)
+        .into_iter()
+        .flatten()
+        .map(|entry| entry.path().to_owned())
+        .filter(|entry| entry.is_dir())
+        .collect();
+    dirs.sort_by(|a, b| b.cmp(a));
+    for dir in dirs {
+        let _ = fs::remove_dir(&dir);
+    }
     Ok(())
 }
 
-fn hash_file<P>(path: P, hasher: &mut Sha512) -> io::Result<SmolStr>
-where P: AsRef<Path> {
+fn hash_file<P>(
+    buffer: &mut [u8],
+    path: P,
+    hasher: &mut Sha512,
+) -> io::Result<SmolStr>
+where
+    P: AsRef<Path>,
+{
     let mut file = File::open(path)?;
-    // Only compute the hash of the first x bytes to make it faster.
-    // If hash collisions are detected, tune this.
-    let mut buffer = [0; 1048576];
-    let n = file.read(&mut buffer)?;
+    let n = file.read(buffer)?;
     hasher.update(&buffer[..n]);
     Ok(format!("{:x}", hasher.finalize_reset()).into())
 }
@@ -123,6 +131,7 @@ where
 {
     let mut hasher: Sha512 = Default::default();
     for entry in WalkDir::new(&src) {
+        let mut buffer = vec![0; BUFFER_SIZE];
         let entry = entry?;
         let metadata = entry.metadata()?;
         if !metadata.is_file() {
@@ -135,7 +144,7 @@ where
         if !(should_convert || ext == "mp3") {
             continue;
         }
-        let hash = hash_file(path, &mut hasher)?;
+        let hash = hash_file(&mut buffer, path, &mut hasher)?;
         let relative =
             undepthify(path.strip_prefix(&src).unwrap()).with_extension("mp3");
         let entry_dst = dst.as_ref().join(&relative);
@@ -164,7 +173,12 @@ where
     Ok(())
 }
 
-fn convert_files(to_convert: &[(PathBuf, PathBuf)], max_jobs: usize) -> io::Result<()> {
+fn convert_files(
+    to_convert: &[(PathBuf, PathBuf)],
+    max_jobs: usize,
+    bitrate: usize,
+) -> io::Result<()> {
+    let bitrate = format!("{}k", bitrate);
     let mut jobs: Vec<Child> = Vec::with_capacity(max_jobs);
     for (src, dst) in to_convert {
         if jobs.len() >= max_jobs {
@@ -181,7 +195,7 @@ fn convert_files(to_convert: &[(PathBuf, PathBuf)], max_jobs: usize) -> io::Resu
                 .arg("-i")
                 .arg(src)
                 .arg("-ab")
-                .arg("256k")
+                .arg(&bitrate)
                 .arg("-hide_banner")
                 .arg("-loglevel")
                 .arg("error")
@@ -197,7 +211,7 @@ fn convert_files(to_convert: &[(PathBuf, PathBuf)], max_jobs: usize) -> io::Resu
     Ok(())
 }
 
-pub fn musync<P>(src: P, dst: P, max_jobs: usize) -> io::Result<()>
+pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> io::Result<()>
 where P: AsRef<Path> {
     let mut new_state: FxHashMap<SmolStr, SmolStr> = Default::default();
     let mut files: FxHashSet<SmolStr> = Default::default();
@@ -205,7 +219,7 @@ where P: AsRef<Path> {
     let state_file = dst.as_ref().join(STATE_FILE);
     let prev_state = read_table(&state_file, 128)?;
     add_new_files(&src, &dst, prev_state, &mut new_state, &mut files, &mut to_convert)?;
-    convert_files(&to_convert, max_jobs)?;
+    convert_files(&to_convert, max_jobs, bitrate)?;
     remove_non_existent_files(&dst, &files)?;
     write_table(state_file, &new_state)?;
     remove_empty_directories(dst)?;

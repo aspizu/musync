@@ -16,6 +16,9 @@ struct Cli {
     #[arg(short, help = "Number of jobs to run in parallel")]
     #[clap(default_value = "16")]
     jobs: usize,
+    #[arg(short, long, help = "Bitrate of converted files")]
+    #[clap(default_value = "256")]
+    bitrate: usize,
 }
 
 fn main() -> io::Result<()> {
@@ -32,7 +35,7 @@ fn main() -> io::Result<()> {
 |___|___| \__,_| \___||____/ |__|__|\____|"#
             .cyan()
     );
-    musync(cli.src, cli.dst, cli.jobs)?;
+    musync(cli.src, cli.dst, cli.jobs, cli.bitrate)?;
     eprintln!(
         "Finished in {}",
         instant.elapsed().as_secs_f32().to_string().green().bold()
