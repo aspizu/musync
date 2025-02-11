@@ -1,9 +1,8 @@
 mod musync;
 
 use std::{
-    io,
     path::PathBuf,
-    process::{ExitCode, ExitStatus},
+    process::ExitCode,
     time::Instant,
 };
 

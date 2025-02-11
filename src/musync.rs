@@ -1,19 +1,41 @@
 use std::{
-    fs::{self, File},
-    io::{self, BufRead, Read, Write},
-    path::{Path, PathBuf},
-    process::{Child, Command},
+    fs::{
+        self,
+        File,
+    },
+    io::{
+        self,
+        BufRead,
+        Read,
+        Write,
+    },
+    path::{
+        Path,
+        PathBuf,
+    },
+    process::{
+        Child,
+        Command,
+    },
 };
 
-use anyhow::{bail, Context};
+use anyhow::{
+    bail,
+    Context,
+};
 use colored::Colorize;
-use fxhash::{FxHashMap, FxHashSet};
-use sha2::{Digest, Sha512};
+use fxhash::{
+    FxHashMap,
+    FxHashSet,
+};
+use sha2::{
+    Digest,
+    Sha512,
+};
 use smol_str::SmolStr;
 use walkdir::WalkDir;
 
-const EXTENSIONS_TO_CONVERT: &[&str] =
-    &["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a", "wav"];
+const EXTENSIONS_TO_CONVERT: &[&str] = &["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a", "wav"];
 const STATE_FILE: &str = ".musync";
 // Only compute the hash of the first x bytes to make it faster.
 // If hash collisions are detected, tune this.
@@ -81,27 +103,16 @@ where P: AsRef<Path> {
     Ok(())
 }
 
-fn hash_file<P>(
-    buffer: &mut [u8],
-    path: P,
-    hasher: &mut Sha512,
-) -> io::Result<SmolStr>
-where
-    P: AsRef<Path>,
-{
+fn hash_file<P>(buffer: &mut [u8], path: P, hasher: &mut Sha512) -> io::Result<SmolStr>
+where P: AsRef<Path> {
     let mut file = File::open(path)?;
     let n = file.read(buffer)?;
     hasher.update(&buffer[..n]);
     Ok(format!("{:x}", hasher.finalize_reset()).into())
 }
 
-fn remove_non_existent_files<P>(
-    dir: P,
-    files: &FxHashSet<SmolStr>,
-) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
+fn remove_non_existent_files<P>(dir: P, files: &FxHashSet<SmolStr>) -> anyhow::Result<()>
+where P: AsRef<Path> {
     for entry in WalkDir::new(&dir) {
         let entry = entry?;
         let metadata = entry.metadata()?;
@@ -141,15 +152,16 @@ where
             continue;
         }
         let path = entry.path();
-        let Some(ext) = path.extension() else { continue };
+        let Some(ext) = path.extension() else {
+            continue;
+        };
         let ext = ext.to_str().unwrap();
         let should_convert = EXTENSIONS_TO_CONVERT.contains(&ext);
         if !(should_convert || ext == "mp3") {
             continue;
         }
         let hash = hash_file(&mut buffer, path, &mut hasher)?;
-        let relative =
-            undepthify(path.strip_prefix(&src).unwrap()).with_extension("mp3");
+        let relative = undepthify(path.strip_prefix(&src).unwrap()).with_extension("mp3");
         let entry_dst = dst.as_ref().join(&relative);
         if let Some(prev_path) = prev_state.get(&hash) {
             if prev_path != relative.to_str().unwrap() {
@@ -215,21 +227,21 @@ fn convert_files(
     Ok(())
 }
 
-pub fn musync<P>(
-    src: P,
-    dst: P,
-    max_jobs: usize,
-    bitrate: usize,
-) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
+pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> anyhow::Result<()>
+where P: AsRef<Path> {
     let mut new_state: FxHashMap<SmolStr, SmolStr> = Default::default();
     let mut files: FxHashSet<SmolStr> = Default::default();
     let mut to_convert: Vec<(PathBuf, PathBuf)> = Default::default();
     let state_file = dst.as_ref().join(STATE_FILE);
     let prev_state = read_table(&state_file, 128)?;
-    add_new_files(&src, &dst, prev_state, &mut new_state, &mut files, &mut to_convert)?;
+    add_new_files(
+        &src,
+        &dst,
+        prev_state,
+        &mut new_state,
+        &mut files,
+        &mut to_convert,
+    )?;
     convert_files(&to_convert, max_jobs, bitrate)?;
     remove_non_existent_files(&dst, &files)?;
     write_table(state_file, &new_state)?;
