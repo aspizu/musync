@@ -1,6 +1,11 @@
 mod musync;
 
-use std::{io, path::PathBuf, time::Instant};
+use std::{
+    io,
+    path::PathBuf,
+    process::{ExitCode, ExitStatus},
+    time::Instant,
+};
 
 use clap::Parser;
 use colored::Colorize;
@@ -21,7 +26,7 @@ struct Cli {
     bitrate: usize,
 }
 
-fn main() -> io::Result<()> {
+fn main() -> ExitCode {
     let instant = Instant::now();
     let cli = Cli::parse();
     eprintln!(
@@ -35,10 +40,15 @@ fn main() -> io::Result<()> {
 |___|___| \__,_| \___||____/ |__|__|\____|"#
             .cyan()
     );
-    musync(cli.src, cli.dst, cli.jobs, cli.bitrate)?;
+    let result = musync(cli.src, cli.dst, cli.jobs, cli.bitrate);
     eprintln!(
         "Finished in {}",
         instant.elapsed().as_secs_f32().to_string().green().bold()
     );
-    Ok(())
+    if let Err(err) = result {
+        eprintln!("{:#?}", err);
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
 }

@@ -5,6 +5,7 @@ use std::{
     process::{Child, Command},
 };
 
+use anyhow::{bail, Context};
 use colored::Colorize;
 use fxhash::{FxHashMap, FxHashSet};
 use sha2::{Digest, Sha512};
@@ -20,24 +21,25 @@ const BUFFER_SIZE: usize = 1048576;
 
 /// Return an iterator to the Reader of the lines of the file.
 fn read_lines<P>(path: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where P: AsRef<Path> {
+where
+    P: AsRef<Path>,
+{
     let file = File::open(path)?;
     Ok(io::BufReader::new(file).lines())
 }
 
 /// Read a 2-column table into a fxhash map. n is the length of the first column.
 /// If the file does not exist, an empty map is returned.
-fn read_table<P>(path: P, n: usize) -> io::Result<FxHashMap<SmolStr, SmolStr>>
-where P: AsRef<Path> {
+fn read_table<P>(path: P, n: usize) -> anyhow::Result<FxHashMap<SmolStr, SmolStr>>
+where
+    P: AsRef<Path>,
+{
     let mut table: FxHashMap<SmolStr, SmolStr> = FxHashMap::default();
     if let Ok(lines) = read_lines(path) {
         for line in lines {
             let line = line?;
             if line.len() < n {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "line too short",
-                ));
+                bail!("line too short");
             }
             let hash = line[0..n].into();
             let path = line[n..].into();
@@ -48,8 +50,10 @@ where P: AsRef<Path> {
 }
 
 /// Write a 2-column table into a file. Does not include any separator.
-fn write_table<P>(path: P, table: &FxHashMap<SmolStr, SmolStr>) -> io::Result<()>
-where P: AsRef<Path> {
+fn write_table<P>(path: P, table: &FxHashMap<SmolStr, SmolStr>) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     let mut file = File::create(path)?;
     for (key, value) in table {
         writeln!(file, "{}{}", key, value)?;
@@ -68,8 +72,10 @@ fn undepthify(path: impl AsRef<Path>) -> PathBuf {
 }
 
 /// Remove empty directories recursively.
-fn remove_empty_directories<P>(path: P) -> io::Result<()>
-where P: AsRef<Path> {
+fn remove_empty_directories<P>(path: P) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     let mut dirs: Vec<_> = WalkDir::new(path)
         .into_iter()
         .flatten()
@@ -83,11 +89,7 @@ where P: AsRef<Path> {
     Ok(())
 }
 
-fn hash_file<P>(
-    buffer: &mut [u8],
-    path: P,
-    hasher: &mut Sha512,
-) -> io::Result<SmolStr>
+fn hash_file<P>(buffer: &mut [u8], path: P, hasher: &mut Sha512) -> io::Result<SmolStr>
 where
     P: AsRef<Path>,
 {
@@ -97,8 +99,13 @@ where
     Ok(format!("{:x}", hasher.finalize_reset()).into())
 }
 
-fn remove_non_existent_files<P>(dir: P, files: &FxHashSet<SmolStr>) -> io::Result<()>
-where P: AsRef<Path> {
+fn remove_non_existent_files<P>(
+    dir: P,
+    files: &FxHashSet<SmolStr>,
+) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     for entry in WalkDir::new(&dir) {
         let entry = entry?;
         let metadata = entry.metadata()?;
@@ -125,7 +132,7 @@ fn add_new_files<P>(
     new_state: &mut FxHashMap<SmolStr, SmolStr>,
     files: &mut FxHashSet<SmolStr>,
     to_convert: &mut Vec<(PathBuf, PathBuf)>,
-) -> io::Result<()>
+) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
@@ -177,7 +184,7 @@ fn convert_files(
     to_convert: &[(PathBuf, PathBuf)],
     max_jobs: usize,
     bitrate: usize,
-) -> io::Result<()> {
+) -> anyhow::Result<()> {
     let bitrate = format!("{}k", bitrate);
     let mut jobs: Vec<Child> = Vec::with_capacity(max_jobs);
     for (src, dst) in to_convert {
@@ -200,7 +207,8 @@ fn convert_files(
                 .arg("-loglevel")
                 .arg("error")
                 .arg(dst)
-                .spawn()?,
+                .spawn()
+                .context("failed to execute ffmpeg.")?,
         );
     }
     eprintln!(" --- Waiting for jobs --- ");
@@ -211,8 +219,10 @@ fn convert_files(
     Ok(())
 }
 
-pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> io::Result<()>
-where P: AsRef<Path> {
+pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     let mut new_state: FxHashMap<SmolStr, SmolStr> = Default::default();
     let mut files: FxHashSet<SmolStr> = Default::default();
     let mut to_convert: Vec<(PathBuf, PathBuf)> = Default::default();
