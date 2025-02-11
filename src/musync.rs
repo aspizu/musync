@@ -12,8 +12,8 @@ use sha2::{Digest, Sha512};
 use smol_str::SmolStr;
 use walkdir::WalkDir;
 
-const EXTENSIONS_TO_CONVERT: [&str; 7] =
-    ["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a"];
+const EXTENSIONS_TO_CONVERT: &[&str] =
+    &["aiff", "flac", "flac", "ogg", "mod", "xm", "m4a", "wav"];
 const STATE_FILE: &str = ".musync";
 // Only compute the hash of the first x bytes to make it faster.
 // If hash collisions are detected, tune this.
@@ -21,9 +21,7 @@ const BUFFER_SIZE: usize = 1048576;
 
 /// Return an iterator to the Reader of the lines of the file.
 fn read_lines<P>(path: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
-{
+where P: AsRef<Path> {
     let file = File::open(path)?;
     Ok(io::BufReader::new(file).lines())
 }
@@ -31,9 +29,7 @@ where
 /// Read a 2-column table into a fxhash map. n is the length of the first column.
 /// If the file does not exist, an empty map is returned.
 fn read_table<P>(path: P, n: usize) -> anyhow::Result<FxHashMap<SmolStr, SmolStr>>
-where
-    P: AsRef<Path>,
-{
+where P: AsRef<Path> {
     let mut table: FxHashMap<SmolStr, SmolStr> = FxHashMap::default();
     if let Ok(lines) = read_lines(path) {
         for line in lines {
@@ -51,9 +47,7 @@ where
 
 /// Write a 2-column table into a file. Does not include any separator.
 fn write_table<P>(path: P, table: &FxHashMap<SmolStr, SmolStr>) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
+where P: AsRef<Path> {
     let mut file = File::create(path)?;
     for (key, value) in table {
         writeln!(file, "{}{}", key, value)?;
@@ -73,9 +67,7 @@ fn undepthify(path: impl AsRef<Path>) -> PathBuf {
 
 /// Remove empty directories recursively.
 fn remove_empty_directories<P>(path: P) -> anyhow::Result<()>
-where
-    P: AsRef<Path>,
-{
+where P: AsRef<Path> {
     let mut dirs: Vec<_> = WalkDir::new(path)
         .into_iter()
         .flatten()
@@ -89,7 +81,11 @@ where
     Ok(())
 }
 
-fn hash_file<P>(buffer: &mut [u8], path: P, hasher: &mut Sha512) -> io::Result<SmolStr>
+fn hash_file<P>(
+    buffer: &mut [u8],
+    path: P,
+    hasher: &mut Sha512,
+) -> io::Result<SmolStr>
 where
     P: AsRef<Path>,
 {
@@ -219,7 +215,12 @@ fn convert_files(
     Ok(())
 }
 
-pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> anyhow::Result<()>
+pub fn musync<P>(
+    src: P,
+    dst: P,
+    max_jobs: usize,
+    bitrate: usize,
+) -> anyhow::Result<()>
 where
     P: AsRef<Path>,
 {
