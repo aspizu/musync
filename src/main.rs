@@ -23,6 +23,9 @@ struct Cli {
     #[arg(short, long, help = "Bitrate of converted files")]
     #[clap(default_value = "256")]
     bitrate: usize,
+    #[arg(short, long, help = "Sample rate of converted files")]
+    #[clap(default_value = "44100")]
+    samplerate: usize,
 }
 
 fn main() -> ExitCode {
@@ -39,7 +42,7 @@ fn main() -> ExitCode {
 |___|___| \__,_| \___||____/ |__|__|\____|"#
             .cyan()
     );
-    let result = musync(cli.src, cli.dst, cli.jobs, cli.bitrate);
+    let result = musync(cli.src, cli.dst, cli.jobs, cli.bitrate, cli.samplerate);
     eprintln!(
         "Finished in {}",
         instant.elapsed().as_secs_f32().to_string().green().bold()

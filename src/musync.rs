@@ -192,8 +192,10 @@ fn convert_files(
     to_convert: &[(PathBuf, PathBuf)],
     max_jobs: usize,
     bitrate: usize,
+    samplerate: usize,
 ) -> anyhow::Result<()> {
-    let bitrate = format!("{}k", bitrate);
+    let bitrate = &format!("{}k", bitrate);
+    let samplerate = &format!("{}", samplerate);
     let mut jobs: Vec<Child> = Vec::with_capacity(max_jobs);
     for (src, dst) in to_convert {
         if jobs.len() >= max_jobs {
@@ -209,8 +211,15 @@ fn convert_files(
                 .arg("-y")
                 .arg("-i")
                 .arg(src)
+                .arg("-vn")
+                .arg("-acodec")
+                .arg("libmp3lame")
+                .arg("-ac")
+                .arg("2")
                 .arg("-ab")
-                .arg(&bitrate)
+                .arg(bitrate)
+                .arg("-ar")
+                .arg(samplerate)
                 .arg("-hide_banner")
                 .arg("-loglevel")
                 .arg("error")
@@ -227,8 +236,16 @@ fn convert_files(
     Ok(())
 }
 
-pub fn musync<P>(src: P, dst: P, max_jobs: usize, bitrate: usize) -> anyhow::Result<()>
-where P: AsRef<Path> {
+pub fn musync<P>(
+    src: P,
+    dst: P,
+    max_jobs: usize,
+    bitrate: usize,
+    samplerate: usize,
+) -> anyhow::Result<()>
+where
+    P: AsRef<Path>,
+{
     let mut new_state: FxHashMap<SmolStr, SmolStr> = Default::default();
     let mut files: FxHashSet<SmolStr> = Default::default();
     let mut to_convert: Vec<(PathBuf, PathBuf)> = Default::default();
@@ -242,7 +259,7 @@ where P: AsRef<Path> {
         &mut files,
         &mut to_convert,
     )?;
-    convert_files(&to_convert, max_jobs, bitrate)?;
+    convert_files(&to_convert, max_jobs, bitrate, samplerate)?;
     remove_non_existent_files(&dst, &files)?;
     write_table(state_file, &new_state)?;
     remove_empty_directories(dst)?;
