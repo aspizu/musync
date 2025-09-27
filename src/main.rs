@@ -24,7 +24,7 @@ struct Cli {
     #[clap(default_value = "256")]
     bitrate: usize,
     #[arg(short, long, help = "Sample rate of converted files")]
-    #[clap(default_value = "44100")]
+    #[clap(short = 'S', default_value = "44100")]
     samplerate: usize,
 }
 
