@@ -102,6 +102,8 @@ sites = [
     "\\(Full Song\\)",
     "Djjohal.fm",
     "\\(Original Mix\\)",
+    "\\(Raag.Fm\\)",
+    "Mr-Jat.in"
 ]
 sitesre = re.compile(
     r"\s*-?[-|;\[(]?\s*("
