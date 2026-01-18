@@ -2,7 +2,7 @@
 
 A tool which lets you listen to your lossless music collection on your car radio.
 
-![Preview](screenshot.png)
+![screenshot](https://github.com/aspizu/musync/raw/main/screenshot.png)
 
 ## Why?
 
